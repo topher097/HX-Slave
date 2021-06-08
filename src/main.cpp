@@ -1,3 +1,4 @@
+// Include libraries
 #include <Arduino.h>
 #include <Audio.h>
 #include <Wire.h>
@@ -10,7 +11,7 @@
 using namespace std;
 
 // Hardware serial (UART)
-#define MASTER_SERIAL Serial2
+#define MASTER_SERIAL Serial1
 
 // Pins
 // off-limits: 6, 7, 8, 10, 11, 12, 13, 15, 18, 19, 20, 21, 23 
@@ -23,7 +24,7 @@ using namespace std;
 // Blink LED
 IntervalTimer blinkTimer;   // Timer object for status LED
 int ledState = LOW;         
-const int blinkDelay = 50; // Blink delay in ms
+const int blinkDelay = 250; // Blink delay in ms
 
 // Default piezo drive properties
 float frequency1 = 1000.0;  // Frequency of left channel piezo in Hz
@@ -93,7 +94,7 @@ void blinkLED() {
       ledState = LOW;
     }
   digitalWrite(BLINK, ledState);
-  //Serial.println(encodeMasterUART());
+  //Serial.println("BLINK");
 }
 
 // When this function is called it updates the sine wave properties with the most updated values,
