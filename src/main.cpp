@@ -5,10 +5,20 @@
 #include <SPI.h>
 #include <SD.h>
 #include <SerialFlash.h>
+#include <Bounce2.h>
 #include <sstream>
 #include <vector>
 
+// Header files
+#include <defaultPiezo.h>
+#include <slaveUART.h>
+
+// Namespaces
+using namespace defaultPiezoProperties;
 using namespace std;
+
+// Bounce button
+Bounce restartButton = Bounce();        // Initialate restart button
 
 // Hardware serial (UART)
 #define MASTER_SERIAL Serial1
@@ -20,71 +30,21 @@ using namespace std;
 #define BLINK   3           // Status LED pin
 #define ENABLE1 4           // Enable driver 1
 #define ENABLE2 5           // Enable driver 2
+#define RESTART 14          // Restart waveform button
 
 // Blink LED
 IntervalTimer blinkTimer;   // Timer object for status LED
 int ledState = LOW;         
 const int blinkDelay = 250; // Blink delay in ms
 
-// Default piezo drive properties
-float frequency1 = 1000.0;  // Frequency of left channel piezo in Hz
-float frequency2 = 1000.0;  // Frequency of right channel piezo in Hz
-float amplitude1 = 0.8;     // Amplitude of sine wave 1 (left cahnnel); 0-1
-float amplitude2 = 0.8;     // Amplitude of sine wave 2 (right channel); 0-1
-float phase1 = 0.0;         // Phase of left channel signal in degrees
-float phase2 = 0.0;         // Phase of right channel signal in degrees
-int enable1 = LOW;          // Enable pin for piezo driver 1
-int enable2 = LOW;          // Enable pin for piezo driver 2
 
 // Audio driver definition
 AudioSynthWaveformSineHires   sine1;          
 AudioSynthWaveformSineHires   sine2;          
-AudioOutputI2S           i2s1;           
-AudioConnection          patchCord1(sine1, 0, i2s1, 0);
-AudioConnection          patchCord2(sine2, 0, i2s1, 1);
-AudioControlSGTL5000     sgtl5000_1;     
-
-
-// Encode the piezo properties for serial as type String()
-String encodeMasterUART(){
-  String encodedUART;
-  String del = ",";
-  vector<float> vars = {frequency1, frequency2, amplitude1, amplitude2, phase1, phase2, (float)enable1, (float)enable2};
-  for (size_t i = 0; i < vars.size(); i++){
-    encodedUART += (String)vars[i];
-    if (i != vars.size()-1) {
-      encodedUART += del;
-    }
-  }
-  return encodedUART;
-}
-
-// Decode the piezo properties from serial
-void decodeMasterUART(string incomingBytes){
-  vector<float> v;
-  stringstream ss(incomingBytes);
-  
-  // Split comma separated string into different elements and add to vector 
-  while (ss.good()){
-    string substr;
-    float temp;
-    getline(ss, substr, ',');
-    istringstream ss2(substr);
-    ss2 >> temp;
-    v.push_back(temp);
-  }
-  
-  // Take elements of vector and save to appropriate variables
-  int i = 1;
-  frequency1 = v[i]; i++;
-  frequency2 = v[i]; i++;
-  amplitude1 = v[i]; i++;
-  amplitude2 = v[i]; i++;
-  phase1     = v[i]; i++;
-  phase2     = v[i]; i++;
-  enable1    = (int)v[i]; i++;
-  enable2    = (int)v[i];
-}
+AudioOutputI2S                i2s1;           
+AudioConnection               patchCord1(sine1, 0, i2s1, 0);
+AudioConnection               patchCord2(sine2, 0, i2s1, 1);
+AudioControlSGTL5000          sgtl5000_1;     
 
 // Blink the status LED 
 void blinkLED() {
@@ -143,6 +103,10 @@ void setup() {
   // Enable the piezo drivers
   digitalWriteFast(ENABLE1, enable1);
   digitalWriteFast(ENABLE2, enable2);
+
+  // Setup restart button
+  restartButton.attach(RESTART, INPUT);     // Attach the debouncer to the pins
+  restartButton.interval(25);               // Bounce delay in ms
 }
 
 void loop() {
@@ -152,15 +116,26 @@ void loop() {
       // Save information to appropriate variables
       // call the modifySignal() function to change the signal
       // send new wave properties back to master teensy to confirm reciept 
+  restartButton.update();
+  if (restartButton.fell()){
+    frequency1 = default_frequency1;    // Frequency of left channel piezo in Hz
+    frequency2 = default_frequency2;    // Frequency of right channel piezo in Hz
+    amplitude1 = default_amplitude1;    // Amplitude of sine wave 1 (left cahnnel); 0-1
+    amplitude2 = default_amplitude2;    // Amplitude of sine wave 2 (right channel); 0-1
+    phase1 = default_phase1;            // Phase of left channel signal in degrees
+    phase2 = default_phase2;            // Phase of right channel signal in degrees
+    enable1 = default_enable1;          // Enable pin for piezo driver 1
+    enable2 = default_enable2;          // Enable pin for piezo driver 2
+    modifySignal();
+  }
 
   String incomingByte;
   if (MASTER_SERIAL.available() > 0) {
     incomingByte = MASTER_SERIAL.readString();
-    Serial.print("UART received: ");
     Serial.println(incomingByte);
-    decodeMasterUART(incomingByte.c_str());                   // Decode the string sent from master teensy
-    modifySignal();                                     // Modify the output signal from audio board given new properties
+    decodeSlaveUART(incomingByte.c_str());                   // Decode the string sent from master teensy
+    modifySignal();                                          // Modify the output signal from audio board given new properties
     MASTER_SERIAL.print("UART received:");
-    MASTER_SERIAL.println(encodeMasterUART());                // Send encoded string back to master teensy
+    MASTER_SERIAL.println(encodeSlaveUART());                // Send encoded string back to master teensy
   }
 }
