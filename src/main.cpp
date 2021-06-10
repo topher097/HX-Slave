@@ -28,8 +28,8 @@ Bounce restartButton = Bounce();        // Initialate restart button
 #define RX1     0           // Serial 1 RX
 #define TX1     1           // Serial 1 TX
 #define BLINK   3           // Status LED pin
-#define ENABLE1 4           // Enable driver 1
-#define ENABLE2 5           // Enable driver 2
+#define ENABLE1 16          // Enable driver 1
+#define ENABLE2 17          // Enable driver 2
 #define RESTART 14          // Restart waveform button
 
 // Blink LED
@@ -81,8 +81,8 @@ void setup() {
   pinMode(BLINK, OUTPUT);
 
   // Serial communications
-  Serial.begin(9600);             // Serial for USB
-  MASTER_SERIAL.begin(9600);      // Serial to connect to master teensy
+  Serial.begin(115200);             // Serial for USB
+  MASTER_SERIAL.begin(115200);      // Serial to connect to master teensy
 
   // Blink interupt
   blinkTimer.begin(blinkLED, blinkDelay*1000);      // Run the blinkLED function at delay speed
@@ -129,13 +129,13 @@ void loop() {
     modifySignal();
   }
 
-  String incomingByte;
-  if (MASTER_SERIAL.available() > 0) {
-    incomingByte = MASTER_SERIAL.readString();
-    Serial.println(incomingByte);
-    decodeSlaveUART(incomingByte.c_str());                   // Decode the string sent from master teensy
-    modifySignal();                                          // Modify the output signal from audio board given new properties
-    MASTER_SERIAL.print("UART received:");
-    MASTER_SERIAL.println(encodeSlaveUART());                // Send encoded string back to master teensy
-  }
+  // String incomingByte;
+  // if (MASTER_SERIAL.available() > 0) {
+  //   incomingByte = MASTER_SERIAL.readString();
+  //   Serial.println(incomingByte);
+  //   decodeSlaveUART(incomingByte.c_str());                   // Decode the string sent from master teensy
+  //   modifySignal();                                          // Modify the output signal from audio board given new properties
+  //   MASTER_SERIAL.print("UART received:");
+  //   MASTER_SERIAL.println(encodeSlaveUART());                // Send encoded string back to master teensy
+  // }
 }
