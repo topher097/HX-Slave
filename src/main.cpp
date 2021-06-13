@@ -37,14 +37,14 @@ IntervalTimer blinkTimer;   // Timer object for status LED
 int ledState = LOW;         
 const int blinkDelay = 250; // Blink delay in ms
 
-
 // Audio driver definition
-AudioSynthWaveformSineHires   sine1;          
-AudioSynthWaveformSineHires   sine2;          
-AudioOutputI2S                i2s1;           
-AudioConnection               patchCord1(sine1, 0, i2s1, 0);
-AudioConnection               patchCord2(sine2, 0, i2s1, 1);
-AudioControlSGTL5000          sgtl5000_1;     
+AudioSynthWaveform       waveform1;
+AudioSynthWaveform       waveform2; 
+AudioOutputI2S           i2s1;          
+AudioConnection          patchCord1(waveform1, 0, i2s1, 0);
+AudioConnection          patchCord2(waveform2, 0, i2s1, 1);
+AudioControlSGTL5000     sgtl5000_1;     
+
 
 // Blink the status LED 
 void blinkLED() {
@@ -62,12 +62,12 @@ void blinkLED() {
 // signal for both channels are updated.
 void modifySignal(){
   AudioNoInterrupts();
-  sine1.frequency(frequency1);              // Frequency of the left channel sine wave; in Hz
-  sine2.frequency(frequency2);              // Frequency of the right channel sine wave; in Hz
-  sine1.amplitude(amplitude1);              // Amplitude of left channel sine wave; 0-1.0
-  sine2.amplitude(amplitude2);              // Amplitude of right channel sine wave; 0-1.0
-  sine1.phase(phase1);                      // Phase angle of the left channel wave; 0-360 degrees
-  sine2.phase(phase2);                      // Phase angle of the right channel wave; 0-360 degrees
+  waveform1.frequency(frequency1);              // Frequency of the left channel sine wave; in Hz
+  waveform2.frequency(frequency2);              // Frequency of the right channel sine wave; in Hz
+  waveform1.amplitude(amplitude1);              // Amplitude of left channel sine wave; 0-1.0
+  waveform2.amplitude(amplitude2);              // Amplitude of right channel sine wave; 0-1.0
+  waveform1.phase(phase1);                      // Phase angle of the left channel wave; 0-360 degrees
+  waveform2.phase(phase2);                      // Phase angle of the right channel wave; 0-360 degrees
   AudioInterrupts();
 
   digitalWrite(ENABLE1, enable1);           // Enable pin for piezo driver 1
@@ -90,15 +90,17 @@ void setup() {
 
   // Audio driver setup
   AudioMemory(20);
-  sgtl5000_1.enable();                      // Enable adio driver
-  sgtl5000_1.unmuteLineout();               // Enable Line Out pins
-  sgtl5000_1.lineOutLevel(14);              // Corresponds to p-p voltage of ~2.98V*amplitude
-  sine1.frequency(frequency1);              // Frequency of the left channel sine wave; in Hz
-  sine2.frequency(frequency2);              // Frequency of the right channel sine wave; in Hz
-  sine1.amplitude(amplitude1);              // Amplitude of left channel sine wave; 0-1.0
-  sine2.amplitude(amplitude2);              // Amplitude of right channel sine wave; 0-1.0
-  sine1.phase(phase1);                      // Phase angle of the left channel wave; 0-360 degrees
-  sine2.phase(phase2);                      // Phase angle of the right channel wave; 0-360 degrees
+  sgtl5000_1.enable();                          // Enable adio driver
+  sgtl5000_1.unmuteLineout();                   // Enable Line Out pins
+  sgtl5000_1.lineOutLevel(13);                  // Corresponds to p-p voltage of ~3.13V*amplitude
+  waveform1.begin(WAVEFORM_SINE);
+  waveform2.begin(WAVEFORM_SINE);
+  waveform1.frequency(frequency1);              // Frequency of the left channel sine wave; in Hz
+  waveform2.frequency(frequency2);              // Frequency of the right channel sine wave; in Hz
+  waveform1.amplitude(amplitude1);              // Amplitude of left channel sine wave; 0-1.0
+  waveform2.amplitude(amplitude2);              // Amplitude of right channel sine wave; 0-1.0
+  waveform1.phase(phase1);                      // Phase angle of the left channel wave; 0-360 degrees
+  waveform2.phase(phase2);                      // Phase angle of the right channel wave; 0-360 degrees
 
   // Enable the piezo drivers
   digitalWriteFast(ENABLE1, enable1);
