@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <SD.h>
 #include <SerialFlash.h>
+#include <LiquidCrystal_I2C.h>
 #include <Bounce2.h>
 #include <sstream>
 #include <vector>
@@ -16,6 +17,15 @@
 // Namespaces
 using namespace defaultPiezoProperties;
 using namespace std;
+
+// I2C devices
+LiquidCrystal_I2C lcd(0x27,20,4);       // Address for LCD
+
+// Special characters for LCD
+byte approxCharacter1[8] = {0x00,0x00,0x08,0x15,0x15,0x02,0x00,0x00};
+byte approxCharacter2[8] = {0x00,0x00,0x00,0x0A,0x14,0x00,0x00,0x00};
+byte degreeCharacter[8] = {0x1C,0x14,0x1C,0x00,0x00,0x00,0x00,0x00};
+byte phiCharacter[8] = {0x04,0x04,0x0E,0x15,0x15,0x0E,0x04,0x04};
 
 // Bounce button
 Bounce restartButton = Bounce();        // Initialate restart button
@@ -36,6 +46,10 @@ Bounce restartButton = Bounce();        // Initialate restart button
 IntervalTimer blinkTimer;   // Timer object for status LED
 int ledState = LOW;         
 const int blinkDelay = 250; // Blink delay in ms
+
+// LCD update timer
+IntervalTimer updateLCDTimer;
+const int updateLCDDelay = 1000;
 
 // Audio driver definition
 AudioSynthWaveform       waveform1;
@@ -74,6 +88,39 @@ void modifySignal(){
   digitalWrite(ENABLE2, enable2);           // Enable pin for piezo driver 2
 }
 
+// Update the LCD screen
+void updateLCD(){
+  if (enable1){
+    lcd.setCursor(0, 0);
+    lcd.print("Piezo 1: " + (String)round(frequency1) + "Hz");
+    lcd.setCursor(0, 1);
+    lcd.print("\4" + (String)round(phase1) + "\3");
+    lcd.setCursor(7, 1);
+    lcd.print("\2" + (String)round((amplitude1*(3.13/3.3))*driver1Voltage) + "V P-P");
+  }
+  else {
+    lcd.setCursor(0, 0);
+    lcd.print("Piezo 1: OFF    ");
+    lcd.setCursor(0, 1);
+    lcd.print("                ");
+  }
+
+  if (enable2){
+    lcd.setCursor(0, 2);
+    lcd.print("Piezo 2: " + (String)round(frequency2) + "Hz");
+    lcd.setCursor(0, 3);
+    lcd.print("\4" + (String)round(phase2) + "\3");
+    lcd.setCursor(7, 3);
+    lcd.print("\2" + (String)round((amplitude2*(3.13/3.3))*driver2Voltage) + "V P-P");
+  }
+  else {
+    lcd.setCursor(0, 2);
+    lcd.print("Piezo 2: OFF    ");
+    lcd.setCursor(0, 3);
+    lcd.print("                ");
+  }  
+}
+
 void setup() {  
   // Pin mode setup
   pinMode(ENABLE1, OUTPUT);
@@ -87,6 +134,23 @@ void setup() {
   // Blink interupt
   blinkTimer.begin(blinkLED, blinkDelay*1000);      // Run the blinkLED function at delay speed
   blinkTimer.priority(1);                           // Priority 0 is highest, 255 is lowest
+
+  // LCD update interupt
+  updateLCDTimer.begin(updateLCD, updateLCDDelay*1000);
+  updateLCDTimer.priority(2);
+
+  // Begin I2C bus
+  Wire.begin();
+
+  // Setup LCD
+  lcd.init();
+  lcd.backlight();
+  lcd.begin(20, 4);
+  lcd.createChar(1, approxCharacter1);
+  lcd.createChar(2, approxCharacter2);
+  lcd.createChar(3, degreeCharacter);
+  lcd.createChar(4, phiCharacter);
+  updateLCD();
 
   // Audio driver setup
   AudioMemory(20);
@@ -111,7 +175,15 @@ void setup() {
   restartButton.interval(25);               // Bounce delay in ms
 }
 
+int count = 0;
 void loop() {
+  // if (count > 100){
+  //   enable2 = false;
+  //   modifySignal();
+  // }
+  // count++;
+  // delay(20);
+
   // To-Do:
     // Check if serial bytes are available
       // If there are, decode them
@@ -129,6 +201,8 @@ void loop() {
     enable1 = default_enable1;          // Enable pin for piezo driver 1
     enable2 = default_enable2;          // Enable pin for piezo driver 2
     modifySignal();
+    updateLCD();
+    count = 0;
   }
 
   // String incomingByte;
