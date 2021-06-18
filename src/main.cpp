@@ -10,6 +10,9 @@
 #include <sstream>
 #include <vector>
 
+// Hardware serial (UART) to master
+#define MASTER_SERIAL Serial1
+
 // Header files
 #include <defaultPiezo.h>
 #include <slaveUART.h>
@@ -30,8 +33,14 @@ byte phiCharacter[8] = {0x04,0x04,0x0E,0x15,0x15,0x0E,0x04,0x04};
 // Bounce button
 Bounce restartButton = Bounce();        // Initialate restart button
 
-// Hardware serial (UART)
-#define MASTER_SERIAL Serial1
+// Blink LED
+IntervalTimer blinkTimer;   // Timer object for status LED
+int ledState = LOW;         
+const int blinkDelay = 250; // Blink delay in ms
+
+// LCD update timer
+IntervalTimer updateLCDTimer;
+const int updateLCDDelay = 1000;
 
 // Pins
 // off-limits: 6, 7, 8, 10, 11, 12, 13, 15, 18, 19, 20, 21, 23 
@@ -41,15 +50,6 @@ Bounce restartButton = Bounce();        // Initialate restart button
 #define ENABLE1 16          // Enable driver 1
 #define ENABLE2 17          // Enable driver 2
 #define RESTART 14          // Restart waveform button
-
-// Blink LED
-IntervalTimer blinkTimer;   // Timer object for status LED
-int ledState = LOW;         
-const int blinkDelay = 250; // Blink delay in ms
-
-// LCD update timer
-IntervalTimer updateLCDTimer;
-const int updateLCDDelay = 1000;
 
 // Audio driver definition
 AudioSynthWaveform       waveform1;
