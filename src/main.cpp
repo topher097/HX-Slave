@@ -9,17 +9,20 @@
 #include <Bounce2.h>
 #include <sstream>
 #include <vector>
+#include <EasyTransfer.h>
 
 // Hardware serial (UART) to master
 #define MASTER_SERIAL Serial1
 
 // Header files
 #include <defaultPiezo.h>
-#include <slaveUART.h>
 
 // Namespaces
 using namespace defaultPiezoProperties;
 using namespace std;
+
+// EasyTransfer objects
+EasyTransfer ETin;
 
 // I2C devices
 LiquidCrystal_I2C lcd(0x27,20,4);       // Address for LCD
@@ -59,6 +62,18 @@ AudioConnection          patchCord1(waveform1, 0, i2s1, 0);
 AudioConnection          patchCord2(waveform2, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     
 
+// Struct for communicating with master
+struct SLAVE_DATA_STRUCTURE{
+  float frequency1;       // Frequency of left channel piezo in Hz
+  float frequency2;       // Frequency of right channel piezo in Hz
+  float amplitude1;       // Amplitude of sine wave 1 (left cahnnel); 0-1
+  float amplitude2;       // Amplitude of sine wave 2 (right channel); 0-1
+  float phase1;           // Phase of left channel signal in degrees
+  float phase2;           // Phase of right channel signal in degrees
+  int enable1;            // Enable pin for piezo driver 1
+  int enable2;            // Enable pin for piezo driver 2
+};
+SLAVE_DATA_STRUCTURE slaveData;
 
 // Blink the status LED 
 void blinkLED() {
@@ -71,32 +86,44 @@ void blinkLED() {
   //Serial.println("BLINK");
 }
 
+// Reset the piezo properties to the default values
+void resetPiezoProperties() {
+  slaveData.frequency1 = default_frequency1;    // Frequency of left channel piezo in Hz
+  slaveData.frequency2 = default_frequency2;    // Frequency of right channel piezo in Hz
+  slaveData.amplitude1 = default_amplitude1;    // Amplitude of sine wave 1 (left cahnnel); 0-1
+  slaveData.amplitude2 = default_amplitude2;    // Amplitude of sine wave 2 (right channel); 0-1
+  slaveData.phase1 = default_phase1;            // Phase of left channel signal in degrees
+  slaveData.phase2 = default_phase2;            // Phase of right channel signal in degrees
+  slaveData.enable1 = default_enable1;            // Enable pin for piezo driver 1
+  slaveData.enable2 = default_enable2;            // Enable pin for piezo driver 2
+}
+
 // When this function is called it updates the sine wave properties with the most updated values,
 // so if there is a signal from the master teensy that changes a property of the wave, the output 
 // signal for both channels are updated.
 void modifySignal(){
   AudioNoInterrupts();
-  waveform1.frequency(frequency1);              // Frequency of the left channel sine wave; in Hz
-  waveform2.frequency(frequency2);              // Frequency of the right channel sine wave; in Hz
-  waveform1.amplitude(amplitude1);              // Amplitude of left channel sine wave; 0-1.0
-  waveform2.amplitude(amplitude2);              // Amplitude of right channel sine wave; 0-1.0
-  waveform1.phase(phase1);                      // Phase angle of the left channel wave; 0-360 degrees
-  waveform2.phase(phase2);                      // Phase angle of the right channel wave; 0-360 degrees
+  waveform1.frequency(slaveData.frequency1);              // Frequency of the left channel sine wave; in Hz
+  waveform2.frequency(slaveData.frequency2);              // Frequency of the right channel sine wave; in Hz
+  waveform1.amplitude(slaveData.amplitude1);              // Amplitude of left channel sine wave; 0-1.0
+  waveform2.amplitude(slaveData.amplitude2);              // Amplitude of right channel sine wave; 0-1.0
+  waveform1.phase(slaveData.phase1);                      // Phase angle of the left channel wave; 0-360 degrees
+  waveform2.phase(slaveData.phase2);                      // Phase angle of the right channel wave; 0-360 degrees
   AudioInterrupts();
 
-  digitalWrite(ENABLE1, enable1);           // Enable pin for piezo driver 1
-  digitalWrite(ENABLE2, enable2);           // Enable pin for piezo driver 2
+  digitalWrite(ENABLE1, slaveData.enable1);           // Enable pin for piezo driver 1
+  digitalWrite(ENABLE2, slaveData.enable2);           // Enable pin for piezo driver 2
 }
 
 // Update the LCD screen
 void updateLCD(){
-  if (enable1){
+  if (slaveData.enable1){
     lcd.setCursor(0, 0);
-    lcd.print("Piezo 1: " + (String)round(frequency1) + "Hz");
+    lcd.print("Piezo 1: " + (String)round(slaveData.frequency1) + "Hz");
     lcd.setCursor(0, 1);
-    lcd.print("\4" + (String)round(phase1) + "\3");
+    lcd.print("\4" + (String)round(slaveData.phase1) + "\3");
     lcd.setCursor(7, 1);
-    lcd.print("\2" + (String)round((amplitude1*(3.13/3.3))*driver1Voltage) + "V P-P");
+    lcd.print("\2" + (String)round((slaveData.amplitude1*(3.13/3.3))*driver1Voltage) + "V P-P");
   }
   else {
     lcd.setCursor(0, 0);
@@ -105,13 +132,13 @@ void updateLCD(){
     lcd.print("                ");
   }
 
-  if (enable2){
+  if (slaveData.enable2){
     lcd.setCursor(0, 2);
-    lcd.print("Piezo 2: " + (String)round(frequency2) + "Hz");
+    lcd.print("Piezo 2: " + (String)round(slaveData.frequency2) + "Hz");
     lcd.setCursor(0, 3);
-    lcd.print("\4" + (String)round(phase2) + "\3");
+    lcd.print("\4" + (String)round(slaveData.phase2) + "\3");
     lcd.setCursor(7, 3);
-    lcd.print("\2" + (String)round((amplitude2*(3.13/3.3))*driver2Voltage) + "V P-P");
+    lcd.print("\2" + (String)round((slaveData.amplitude2*(3.13/3.3))*driver2Voltage) + "V P-P");
   }
   else {
     lcd.setCursor(0, 2);
@@ -122,6 +149,11 @@ void updateLCD(){
 }
 
 void setup() {  
+  ETin.begin(details(slaveData), &MASTER_SERIAL);       // Serial communication with the master teensy
+  
+  // Setup piezo properties
+  resetPiezoProperties();
+
   // Pin mode setup
   pinMode(ENABLE1, OUTPUT);
   pinMode(ENABLE2, OUTPUT);
@@ -159,16 +191,16 @@ void setup() {
   sgtl5000_1.lineOutLevel(13);                  // Corresponds to p-p voltage of ~3.13V*amplitude
   waveform1.begin(WAVEFORM_SINE);
   waveform2.begin(WAVEFORM_SINE);
-  waveform1.frequency(frequency1);              // Frequency of the left channel sine wave; in Hz
-  waveform2.frequency(frequency2);              // Frequency of the right channel sine wave; in Hz
-  waveform1.amplitude(amplitude1);              // Amplitude of left channel sine wave; 0-1.0
-  waveform2.amplitude(amplitude2);              // Amplitude of right channel sine wave; 0-1.0
-  waveform1.phase(phase1);                      // Phase angle of the left channel wave; 0-360 degrees
-  waveform2.phase(phase2);                      // Phase angle of the right channel wave; 0-360 degrees
+  waveform1.frequency(slaveData.frequency1);              // Frequency of the left channel sine wave; in Hz
+  waveform2.frequency(slaveData.frequency2);              // Frequency of the right channel sine wave; in Hz
+  waveform1.amplitude(slaveData.amplitude1);              // Amplitude of left channel sine wave; 0-1.0
+  waveform2.amplitude(slaveData.amplitude2);              // Amplitude of right channel sine wave; 0-1.0
+  waveform1.phase(slaveData.phase1);                      // Phase angle of the left channel wave; 0-360 degrees
+  waveform2.phase(slaveData.phase2);                      // Phase angle of the right channel wave; 0-360 degrees
 
   // Enable the piezo drivers
-  digitalWriteFast(ENABLE1, enable1);
-  digitalWriteFast(ENABLE2, enable2);
+  digitalWriteFast(ENABLE1, slaveData.enable1);
+  digitalWriteFast(ENABLE2, slaveData.enable2);
 
   // Setup restart button
   restartButton.attach(RESTART, INPUT);     // Attach the debouncer to the pins
@@ -177,41 +209,16 @@ void setup() {
 
 int count = 0;
 void loop() {
-  // if (count > 100){
-  //   enable2 = false;
-  //   modifySignal();
-  // }
-  // count++;
-  // delay(20);
-
-  // To-Do:
-    // Check if serial bytes are available
-      // If there are, decode them
-      // Save information to appropriate variables
-      // call the modifySignal() function to change the signal
-      // send new wave properties back to master teensy to confirm reciept 
   restartButton.update();
   if (restartButton.fell()){
-    frequency1 = default_frequency1;    // Frequency of left channel piezo in Hz
-    frequency2 = default_frequency2;    // Frequency of right channel piezo in Hz
-    amplitude1 = default_amplitude1;    // Amplitude of sine wave 1 (left cahnnel); 0-1
-    amplitude2 = default_amplitude2;    // Amplitude of sine wave 2 (right channel); 0-1
-    phase1 = default_phase1;            // Phase of left channel signal in degrees
-    phase2 = default_phase2;            // Phase of right channel signal in degrees
-    enable1 = default_enable1;          // Enable pin for piezo driver 1
-    enable2 = default_enable2;          // Enable pin for piezo driver 2
+    resetPiezoProperties();
     modifySignal();
     updateLCD();
     count = 0;
   }
 
-  // String incomingByte;
-  // if (MASTER_SERIAL.available() > 0) {
-  //   incomingByte = MASTER_SERIAL.readString();
-  //   Serial.println(incomingByte);
-  //   decodeSlaveUART(incomingByte.c_str());                   // Decode the string sent from master teensy
-  //   modifySignal();                                          // Modify the output signal from audio board given new properties
-  //   MASTER_SERIAL.print("UART received:");
-  //   MASTER_SERIAL.println(encodeSlaveUART());                // Send encoded string back to master teensy
-  // }
+  if (ETin.receiveData()){
+    modifySignal();
+    Serial.println("Data recieved");
+  }
 }
