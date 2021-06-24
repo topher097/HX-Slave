@@ -119,7 +119,7 @@ void modifySignal(){
 void updateLCD(){
   if (slaveData.enable1){
     lcd.setCursor(0, 0);
-    lcd.print("Piezo 1: " + (String)round(slaveData.frequency1) + "Hz");
+    lcd.print("Piezo 1: " + (String)round(slaveData.frequency1) + "Hz   ");
     lcd.setCursor(0, 1);
     lcd.print("\4" + (String)round(slaveData.phase1) + "\3");
     lcd.setCursor(7, 1);
@@ -134,7 +134,7 @@ void updateLCD(){
 
   if (slaveData.enable2){
     lcd.setCursor(0, 2);
-    lcd.print("Piezo 2: " + (String)round(slaveData.frequency2) + "Hz");
+    lcd.print("Piezo 2: " + (String)round(slaveData.frequency2) + "Hz   ");
     lcd.setCursor(0, 3);
     lcd.print("\4" + (String)round(slaveData.phase2) + "\3");
     lcd.setCursor(7, 3);
