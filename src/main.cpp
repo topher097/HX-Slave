@@ -215,10 +215,12 @@ void loop() {
     modifySignal();
     updateLCD();
     count = 0;
+    Serial.println("Reset signal");
   }
 
   if (ETin.receiveData()){
     modifySignal();
-    Serial.println("Data recieved");
+    Serial.print(count); Serial.println(" Modified signal");
+    count ++;
   }
 }
